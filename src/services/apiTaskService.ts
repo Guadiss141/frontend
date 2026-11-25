@@ -1,24 +1,16 @@
 // src/services/apiTaskService.ts
-// Cliente de la API de tareas (FastAPI). Rutas confirmadas en https://api.montenegroariel.com.ar/docs:
-//   POST   /tasks/            crear
-//   GET    /tasks/            listar
-//   GET    /tasks/{id}        leer una
-//   PUT    /tasks/{id}        actualizar (el cuerpo lleva title, description y completed)
-//   DELETE /tasks/{id}        eliminar (responde 204, sin cuerpo)
+// Cliente de la API de tareas (FastAPI): https://api.montenegroariel.com.ar/docs
+//   POST /tasks/   GET /tasks/   GET|PUT|DELETE /tasks/{id}
+// Traduce lo que devuelve el servidor (id numérico, description puede ser null) al tipo Task de la app.
 import { API_URL, REQUEST_TIMEOUT_MS } from '../config/api';
+import type { Task } from '../types/task';
 
-export type Task = {
+type ApiTask = {
   id: number;
   title: string;
   description: string | null;
   completed: boolean;
-  archived?: boolean; // el servidor local lo devuelve; hay que confirmar si el publicado también
-};
-
-export type TaskInput = {
-  title: string;
-  description?: string | null;
-  completed?: boolean;
+  archived?: boolean;
 };
 
 export class ApiError extends Error {
@@ -29,6 +21,15 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.status = status;
   }
+}
+
+function toTask(api: ApiTask): Task {
+  return {
+    id: String(api.id),
+    title: api.title,
+    description: api.description ?? '',
+    completed: api.completed,
+  };
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -58,7 +59,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if ((error as Error).name === 'AbortError') {
-      throw new ApiError('El servidor tardó demasiado en responder. Probá otra vez.', 0);
+      throw new ApiError('El servidor tardó demasiado en responder.', 0);
     }
     throw new ApiError('No se pudo conectar con el servidor.', 0);
   } finally {
@@ -66,39 +67,33 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 }
 
-// OJO: las rutas de colección terminan en "/" (/tasks/). Sin la barra, FastAPI responde con una redirección.
-// El servidor devuelve 10 tareas por defecto; se pide un límite mayor.
-export function fetchTasks(limit = 100): Promise<Task[]> {
-  return request<Task[]>(`/tasks/?skip=0&limit=${limit}`);
+// Las rutas de colección terminan en "/". El servidor devuelve 10 tareas por defecto: se pide un límite mayor.
+// simulateFailure mantiene el botón "Simular error API" de la pantalla (no hace ninguna llamada de red).
+export async function fetchTasks(simulateFailure = false): Promise<Task[]> {
+  if (simulateFailure) {
+    throw new ApiError('HTTP 503: servidor temporalmente indisponible (simulado)', 503);
+  }
+  const records = await request<ApiTask[]>('/tasks/?skip=0&limit=100');
+  return records.map(toTask);
 }
 
-export function createTask(input: TaskInput): Promise<Task> {
-  return request<Task>('/tasks/', {
+export async function createTask(title: string, description = ''): Promise<Task> {
+  const created = await request<ApiTask>('/tasks/', {
     method: 'POST',
-    body: JSON.stringify({
-      title: input.title.trim(),
-      description: input.description ?? null,
-      completed: input.completed ?? false,
-    }),
+    body: JSON.stringify({ title: title.trim(), description: description || null, completed: false }),
   });
+  return toTask(created);
 }
 
-// PUT reemplaza la tarea completa, así que se reenvían los campos que no cambian.
-export function updateTask(task: Task, changes: Partial<TaskInput>): Promise<Task> {
-  return request<Task>(`/tasks/${task.id}`, {
+// PUT reemplaza la tarea completa, por eso se reenvían título y descripción.
+export async function updateTaskCompleted(task: Task, completed: boolean): Promise<Task> {
+  const updated = await request<ApiTask>(`/tasks/${task.id}`, {
     method: 'PUT',
-    body: JSON.stringify({
-      title: (changes.title ?? task.title).trim(),
-      description: changes.description !== undefined ? changes.description : task.description,
-      completed: changes.completed ?? task.completed,
-    }),
+    body: JSON.stringify({ title: task.title, description: task.description || null, completed }),
   });
+  return toTask(updated);
 }
 
-export function toggleTask(task: Task): Promise<Task> {
-  return updateTask(task, { completed: !task.completed });
-}
-
-export function deleteTask(id: number): Promise<void> {
+export function deleteTask(id: string): Promise<void> {
   return request<void>(`/tasks/${id}`, { method: 'DELETE' });
 }

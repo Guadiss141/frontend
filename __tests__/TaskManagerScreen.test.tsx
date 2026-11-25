@@ -6,6 +6,25 @@ import TaskManagerScreen from '../app/index';
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn() },
 }));
+jest.mock('../src/services/apiTaskService', () => {
+  const tasks = [
+    { id: 't01', title: 'Validar login', description: 'Comprobar campos vacíos y credenciales incorrectas.', completed: false },
+    { id: 't02', title: 'Corregir navegación', description: 'Validar el regreso desde el detalle.', completed: true },
+    { id: 't03', title: 'Probar API lenta', description: 'Simular una demora y verificar los indicadores de carga.', completed: false },
+    { id: 't04', title: 'Generar reporte', description: 'Documentar los fallos detectados y su corrección.', completed: false },
+    { id: 't05', title: 'Revisar validaciones', description: 'Asegurar el tratamiento de espacios y datos vacíos.', completed: true },
+  ];
+  return {
+    fetchTasks: async (simulateFailure = false) => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      if (simulateFailure) throw new Error('HTTP 503 simulado');
+      return tasks.map((task) => ({ ...task }));
+    },
+    createTask: async (title: string) => ({ id: 'n1', title, description: '', completed: false }),
+    updateTaskCompleted: async (task: object, completed: boolean) => ({ ...task, completed }),
+    deleteTask: async () => undefined,
+  };
+});
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: any) => children,
 }));

@@ -26,10 +26,14 @@ export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
         <View style={styles.content}>
           <Text style={[styles.title, task.completed && styles.completed]}>{task.title}</Text>
           <View style={styles.row}>
-            <Text style={[styles.priority, task.priority === 'alta' && styles.high]}>
-              {task.priority.toUpperCase()}
-            </Text>
-            <Text style={styles.dividerText}>·</Text>
+            {task.priority ? (
+  <>
+    <Text style={[styles.priority, task.priority === 'alta' && styles.high]}>
+      {task.priority.toUpperCase()}
+    </Text>
+    <Text style={styles.dividerText}>·</Text>
+  </>
+) : null}
             <Text style={styles.state}>{task.completed ? 'Completada' : 'Pendiente'}</Text>
           </View>
         </View>
