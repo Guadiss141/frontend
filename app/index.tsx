@@ -5,6 +5,7 @@ import {
   ActivityIndicator, FlatList, Keyboard, Pressable, ScrollView,
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
+import { useAuth } from '../src/context/AuthContext';
 import { TaskCard } from '../src/components/TaskCard';
 import { StatusTabs } from '../src/components/StatusTabs';
 import { fetchTasks } from '../src/services/taskService';
@@ -13,6 +14,7 @@ import { filterTasks } from '../src/utils/taskFilters';
 import { isValidTaskTitle } from '../src/utils/taskValidation';
 
 export default function TaskManagerScreen() {
+  const { user, signOut } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TaskStatus>('todas');
@@ -111,11 +113,17 @@ export default function TaskManagerScreen() {
           <>
             <View style={styles.eyebrowRow}>
               <Text style={styles.eyebrow}>LABORATORIO · REACT NATIVE</Text>
-              <Pressable accessibilityRole="button" onPress={() => router.push('/guia')} style={styles.helpButton}>
-                <Text style={styles.helpText}>Guía ↗</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+  <Pressable accessibilityRole="button" onPress={() => router.push('/guia')} style={styles.helpButton}>
+    <Text style={styles.helpText}>Guía ↗</Text>
+  </Pressable>
+  <Pressable accessibilityRole="button" testID="logout-button" onPress={() => void signOut()} style={styles.helpButton}>
+    <Text style={styles.helpText}>Salir</Text>
+  </Pressable>
+</View>
             </View>
             <Text style={styles.heading}>Gestor de tareas</Text>
+            {user ? <Text style={styles.subtitle}>Hola, {user.name}</Text> : null}
             <Text style={styles.subtitle}>Proyecto de clase para diagnosticar errores reales.</Text>
 
             <View style={styles.statsRow}>
